@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OTP Login</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: "Inter", Arial, sans-serif; /* Using Inter font */
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: #fff;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      padding: 20px;
+      box-sizing: border-box;
+    }
+    .container {
+      background: rgba(255, 255, 255, 0.15);
+      backdrop-filter: blur(10px);
+      padding: 2rem;
+      border-radius: 15px; /* Rounded corners */
+      width: 100%;
+      max-width: 400px;
+      text-align: center;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+    h2 {
+        font-weight: 600;
+        margin-bottom: 1.5rem;
+    }
+    input, button {
+      width: 100%;
+      padding: 0.8rem;
+      margin: 0.5rem 0;
+      border: none;
+      border-radius: 8px; /* Rounded corners */
+      font-size: 1rem;
+      outline: none;
+      box-sizing: border-box;
+    }
+    input {
+      background: rgba(255, 255, 255, 0.9);
+      color: #333;
+    }
+    input:focus {
+      background: rgba(255, 255, 255, 1);
+      box-shadow: 0 0 0 2px rgba(128, 90, 213, 0.5); /* Focus ring with a theme color */
+    }
+    button {
+      background: #7b4397; /* Adjusted button color */
+      background: linear-gradient(to right, #7b4397, #dc2430); /* Gradient button */
+      color: #fff;
+      cursor: pointer;
+      font-weight: bold;
+      transition: all 0.3s ease;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    button:hover:not(:disabled) {
+      background: linear-gradient(to right, #6a3582, #b81e28); /* Darker gradient on hover */
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    }
+    button:disabled {
+      background: #aaa;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+      opacity: 0.7;
+    }
+    .forgot-password {
+      background: transparent;
+      color: #f0f0f0; /* Lighter color for better visibility */
+      font-size: 0.9rem;
+      text-decoration: underline;
+      padding: 0.5rem;
+      margin: 0.5rem 0;
+      cursor: pointer;
+      border: none;
+      transition: color 0.3s ease;
+    }
+    .forgot-password:hover {
+      color: #ffffff; /* Brighter on hover */
+      background: transparent;
+      transform: none;
+      box-shadow: none;
+    }
+    #message {
+      min-height: 25px;
+      font-size: 0.9rem;
+      margin-top: 1rem;
+      padding: 0.75rem; /* Increased padding */
+      border-radius: 8px; /* Rounded corners */
+      background: rgba(0, 0, 0, 0.2); /* Darker, more contrasty background */
+      line-height: 1.4;
+    }
+    .loading {
+      opacity: 0.7;
+    }
+    .success { color: #90EE90; background-color: rgba(46, 204, 113, 0.2); border-left: 4px solid #2ecc71; }
+    .error { color: #FFB6C1; background-color: rgba(231, 76, 60, 0.2); border-left: 4px solid #e74c3c;}
+    .warning { color: #FFE4B5; background-color: rgba(243, 156, 18, 0.2); border-left: 4px solid #f39c12;}
+    .info { color: #ADD8E6; background-color: rgba(52, 152, 219, 0.2); border-left: 4px solid #3498db;}
+    
+    .debug {
+      background: rgba(0, 0, 0, 0.3);
+      padding: 10px;
+      margin-top: 10px;
+      border-radius: 5px;
+      font-size: 0.8rem;
+      text-align: left;
+      white-space: pre-wrap;
+      max-height: 150px;
+      overflow-y: auto;
+      display: none; /* Hidden by default */
+    }
+    .debug-toggle {
+      font-size: 0.7rem;
+      margin-top: 10px;
+      background: rgba(255, 255, 255, 0.1);
+      padding: 0.3rem 0.6rem;
+      border-radius: 5px;
+      display: none; /* Hidden by default */
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2 id="title">Login with OTP</h2>
+    <input id="email" type="email" placeholder="Enter your email" />
+    <input id="otp" type="text" placeholder="Enter 6-digit OTP" maxlength="6" style="display:none" />
+    
+    <button id="actionBtn">Send OTP</button>
+    <button id="verifyOtpBtn" style="display:none;">Verify OTP</button>
+    <button id="resendOtpBtn" style="display:none;">Resend OTP</button>
+    
+    <input id="password" type="password" placeholder="Enter your password" style="display:none" />
+    <input id="confirmPassword" type="password" placeholder="Confirm your password" style="display:none" />
+    <button id="submitPasswordBtn" style="display:none;">Submit Password</button>
+    <button id="forgotPasswordBtn" class="forgot-password" style="display:none;">Forgot Password?</button>
+    
+    <button id="logoutBtn" style="display:none;">Logout</button>
+  
+    <div id="message"></div>
+    <div id="debug" class="debug"></div>
+    <button onclick="toggleDebug()" class="debug-toggle" id="debugToggle">Toggle Debug Info</button>
+  </div>
+
+  <script>
+    // Configuration - Assuming backend runs on the same origin
+    const API_BASE_URL = window.location.origin; 
+  
+    // DOM Elements
+    const emailInput = document.getElementById('email'); // Renamed for clarity
+    const otpInput = document.getElementById('otp'); // Renamed for clarity
+    const actionBtn = document.getElementById('actionBtn'); // Was sendOtpBtn
+    const verifyOtpBtn = document.getElementById('verifyOtpBtn');
+    const resendOtpBtn = document.getElementById('resendOtpBtn');
+    const logoutBtn = document.getElementById('logoutBtn');
+    const messageDiv = document.getElementById('message'); // Renamed for clarity
+    const titleElement = document.getElementById('title'); // Renamed for clarity
+    const passwordInput = document.getElementById('password'); // Renamed for clarity
+    const confirmPasswordInput = document.getElementById('confirmPassword'); // Renamed for clarity
+    const submitPasswordBtn = document.getElementById('submitPasswordBtn');
+    const forgotPasswordBtn = document.getElementById('forgotPasswordBtn');
+    const debugDiv = document.getElementById('debug');
+    const debugToggleBtn = document.getElementById('debugToggle'); // Renamed for clarity
+
+    // State variables
+    let resendCooldown = false;
+    let storedEmail = '';
+    let isExistingUser = false;
+    let isForgotPassword = false;
+
+    // --- Utility Functions ---
+    const debugLog = (text) => {
+      console.log(text);
+      const timestamp = new Date().toLocaleTimeString();
+      debugDiv.textContent += `${timestamp}: ${text}\n`;
+      debugDiv.scrollTop = debugDiv.scrollHeight; // Auto-scroll
+    };
+
+    const toggleDebug = () => {
+      debugDiv.style.display = debugDiv.style.display === 'none' ? 'block' : 'none';
+    };
+
+    const showMessage = (text, type = 'info') => {
+      messageDiv.textContent = text;
+      messageDiv.className = type; // Applies success, error, warning, info classes
+      if (text) debugLog(`Message: ${text} (type: ${type})`);
+      
+      // Show debug toggle on errors for troubleshooting
+      debugToggleBtn.style.display = (type === 'error' || debugDiv.textContent) ? 'inline-block' : 'none';
+    };
+
+    const setLoading = (element, isLoading) => {
+      if (!element) return;
+      element.disabled = isLoading;
+      if (isLoading) {
+        element.classList.add('loading');
+      } else {
+        element.classList.remove('loading');
+      }
+    };
+
+    // Enhanced fetch with better error handling
+    const apiRequest = async (endpoint, options = {}) => {
+      const url = `${API_BASE_URL}${endpoint}`;
+      debugLog(`Requesting: ${url}`);
+      debugLog(`Options: ${JSON.stringify(options, null, 2)}`);
+      
+      try {
+        const response = await fetch(url, {
+          headers: {
+            'Content-Type': 'application/json',
+            ...options.headers
+          },
+          ...options
+        });
+
+        debugLog(`Response Status: ${response.status} ${response.statusText}`);
+        const responseText = await response.text(); // Get text first for robust parsing
+        debugLog(`Response Text (first 200 chars): ${responseText.substring(0, 200)}${responseText.length > 200 ? '...' : ''}`);
+
+        let data;
+        try {
+          data = JSON.parse(responseText);
+        } catch (jsonError) {
+          debugLog(`JSON Parse Error: ${jsonError.message}. Response was not valid JSON.`);
+          // If not JSON, and response not OK, throw an error with the text
+          if (!response.ok) {
+            throw new Error(`Server returned non-JSON error: ${response.status} ${response.statusText}. Response: ${responseText.substring(0,100)}...`);
+          }
+          // If it's not JSON but response is OK (e.g. unexpected success response format)
+          data = { message: responseText }; // Or handle as appropriate
+        }
+
+        if (!response.ok) {
+          // Use error from JSON data if available, otherwise use status text
+          throw new Error(data.error || data.message || `Request failed: ${response.status} ${response.statusText}`);
+        }
+        return data;
+      } catch (error) {
+        debugLog(`API Request Error: ${error.message}`);
+        throw error; // Re-throw to be caught by calling function
+      }
+    };
+
+    // --- UI State Management Functions ---
+    const showLoginScreen = () => {
+      titleElement.textContent = "Login / Register";
+      emailInput.style.display = 'block';
+      emailInput.disabled = false;
+      emailInput.value = storedEmail; // Retain email if user comes back
+      otpInput.style.display = 'none';
+      otpInput.value = '';
+      actionBtn.style.display = 'inline-block';
+      actionBtn.textContent = 'Send OTP / Login'; // General purpose
+      actionBtn.disabled = false;
+      verifyOtpBtn.style.display = 'none';
+      resendOtpBtn.style.display = 'none';
+      passwordInput.style.display = 'none';
+      passwordInput.value = '';
+      confirmPasswordInput.style.display = 'none';
+      confirmPasswordInput.value = '';
+      submitPasswordBtn.style.display = 'none';
+      forgotPasswordBtn.style.display = 'none'; // Hide initially, show with password screen
+      logoutBtn.style.display = 'none';
+      
+      isExistingUser = false;
+      isForgotPassword = false;
+      showMessage(''); // Clear any previous messages
+      emailInput.focus();
+    };
+
+    const showOtpScreen = () => {
+      titleElement.textContent = isForgotPassword ? "Enter OTP for Password Reset" : "Enter OTP";
+      emailInput.disabled = true; // Keep email visible but disabled
+      otpInput.style.display = 'block';
+      otpInput.value = '';
+      actionBtn.style.display = 'none';
+      verifyOtpBtn.style.display = 'inline-block';
+      resendOtpBtn.style.display = 'inline-block';
+      resendOtpBtn.disabled = true; // Will be enabled by cooldown
+      passwordInput.style.display = 'none';
+      confirmPasswordInput.style.display = 'none';
+      submitPasswordBtn.style.display = 'none';
+      forgotPasswordBtn.style.display = 'none';
+      otpInput.focus();
+      startResendCooldown();
+    };
+
+    const showPasswordScreen = () => {
+      emailInput.disabled = true; // Keep email field disabled
+      otpInput.style.display = 'none';
+      verifyOtpBtn.style.display = 'none';
+      resendOtpBtn.style.display = 'none';
+      actionBtn.style.display = 'none';
+      
+      passwordInput.style.display = 'block';
+      passwordInput.value = '';
+      submitPasswordBtn.style.display = 'inline-block';
+
+      if (isExistingUser && !isForgotPassword) {
+        titleElement.textContent = "Enter your Password";
+        confirmPasswordInput.style.display = 'none';
+        forgotPasswordBtn.style.display = 'inline-block'; // Show forgot password for existing users
+        submitPasswordBtn.textContent = 'Login';
+        showMessage(`Welcome back, ${storedEmail}! Please enter your password.`, 'info');
+      } else { // New user registration or Forgot Password (setting new password)
+        titleElement.textContent = isForgotPassword ? "Set New Password" : "Create your Password";
+        confirmPasswordInput.style.display = 'block';
+        confirmPasswordInput.value = '';
+        forgotPasswordBtn.style.display = 'none'; // Hide during new password creation
+        submitPasswordBtn.textContent = isForgotPassword ? 'Reset Password' : 'Create Account';
+        showMessage(isForgotPassword ? 'OTP verified. Please set your new password.' : 'OTP verified. Please create a password for your new account.', 'success');
+      }
+      passwordInput.focus();
+    };
+
+    const showWelcomeScreen = (emailValue) => {
+      titleElement.textContent = "Welcome!";
+      emailInput.style.display = 'none';
+      otpInput.style.display = 'none';
+      passwordInput.style.display = 'none';
+      confirmPasswordInput.style.display = 'none';
+      actionBtn.style.display = 'none';
+      verifyOtpBtn.style.display = 'none';
+      resendOtpBtn.style.display = 'none';
+      submitPasswordBtn.style.display = 'none';
+      forgotPasswordBtn.style.display = 'none';
+      logoutBtn.style.display = 'inline-block';
+      showMessage(`Successfully logged in as ${emailValue}! 🎉`, 'success');
+    };
+
+    // --- Core Logic Functions ---
+    const validatePassword = () => {
+      if (!passwordInput.value.trim()) {
+        showMessage('Password cannot be empty.', 'error');
+        return false;
+      }
+      if (passwordInput.value.length < 6) {
+        showMessage('Password must be at least 6 characters long.', 'error');
+        return false;
+      }
+      // Validate confirm password only if it's visible (new user or password reset)
+      if (confirmPasswordInput.style.display !== 'none') {
+        if (!confirmPasswordInput.value.trim()) {
+          showMessage('Please confirm your password.', 'error');
+          return false;
+        }
+        if (passwordInput.value !== confirmPasswordInput.value) {
+          showMessage('Passwords do not match.', 'error');
+          return false;
+        }
+      }
+      return true;
+    };
+
+    const handleSendOtpOrLogin = async () => {
+      if (!emailInput.checkValidity() || !emailInput.value.trim()) {
+        showMessage('Please enter a valid email address.', 'error');
+        return;
+      }
+      if (resendCooldown && (isForgotPassword || !isExistingUser) ) { // Check cooldown if OTP is expected
+         showMessage('Please wait before resending OTP.', 'warning');
+         return;
+      }
+
+      storedEmail = emailInput.value.trim();
+      setLoading(actionBtn, true);
+      showMessage('Processing...', 'info');
+
+      try {
+        if (isForgotPassword) { // If in forgot password mode, directly send reset OTP
+            await actuallySendOtp();
+        } else {
+            // Check if user is registered
+            const data = await apiRequest('/checkRegistered', {
+              method: 'POST',
+              body: JSON.stringify({ email: storedEmail })
+            });
+
+            if (data.registered) {
+              isExistingUser = true;
+              emailInput.disabled = true;
+              showPasswordScreen(); // Go to password input for existing user
+              // Message is set in showPasswordScreen
+            } else {
+              // Not registered, proceed with OTP for new registration
+              isExistingUser = false;
+              await actuallySendOtp();
+            }
+        }
+      } catch (err) {
+        showMessage(`Error: ${err.message}`, 'error');
+      } finally {
+        setLoading(actionBtn, false);
+      }
+    };
+
+    const actuallySendOtp = async () => {
+      // This function is now called when we are certain an OTP needs to be sent
+      // (either for new registration or password reset)
+      setLoading(isForgotPassword ? actionBtn : resendOtpBtn, true); // Load correct button
+      showMessage('Sending OTP...', 'info');
+      try {
+        const endpoint = isForgotPassword ? '/sendPasswordResetOtp' : '/sendEmail';
+        await apiRequest(endpoint, {
+          method: 'POST',
+          body: JSON.stringify({ to: storedEmail }) // 'to' field as expected by backend
+        });
+        
+        const messageText = isForgotPassword ? 
+          `Password reset OTP sent to ${storedEmail} 📧` : 
+          `OTP sent to ${storedEmail} for new account setup 📧`;
+        showMessage(messageText, 'success');
+        showOtpScreen(); // This will also start the resend cooldown
+      } catch (err) {
+        showMessage(`Error sending OTP: ${err.message}`, 'error');
+        // If OTP sending fails, re-enable the primary action button if it was the sender
+        if (isForgotPassword && actionBtn.classList.contains('loading')) {
+            setLoading(actionBtn, false);
+        }
+      } finally {
+        // setLoading is handled for resendOtpBtn within startResendCooldown
+        // and for actionBtn if it was the initiator.
+      }
+    };
+    
+    const handleResendOtp = async () => {
+        if (resendCooldown) {
+             showMessage('Please wait before resending OTP.', 'warning');
+             return;
+        }
+        // We assume if resend button is visible, storedEmail is set and isForgotPassword state is correct.
+        await actuallySendOtp(); // Re-use the OTP sending logic
+    };
+
+
+    const verifyOtp = async () => {
+      if (!otpInput.value.trim() || otpInput.value.length !== 6) {
+        showMessage('Please enter a valid 6-digit OTP.', 'error');
+        return;
+      }
+
+      setLoading(verifyOtpBtn, true);
+      showMessage('Verifying OTP...', 'info');
+
+      try {
+        const endpoint = isForgotPassword ? '/verifyPasswordResetOtp' : '/verifyOtp';
+        await apiRequest(endpoint, {
+          method: 'POST',
+          body: JSON.stringify({
+            email: storedEmail,
+            otp: otpInput.value.trim()
+          })
+        });
+        
+        // isExistingUser is set based on /checkRegistered for non-forgot-password flows.
+        // For forgot password, isExistingUser is implicitly true.
+        // The showPasswordScreen function will handle the UI text correctly based on isForgotPassword.
+        showPasswordScreen(); 
+        // Message is set in showPasswordScreen
+        
+      } catch (err) {
+        showMessage(`Error verifying OTP: ${err.message}`, 'error');
+      } finally {
+        setLoading(verifyOtpBtn, false);
+      }
+    };
+
+    const submitPassword = async () => {
+      if (!validatePassword()) {
+        return;
+      }
+
+      setLoading(submitPasswordBtn, true);
+      showMessage('Processing...', 'info');
+
+      try {
+        let endpoint, body;
+        const currentPassword = passwordInput.value.trim();
+
+        if (isExistingUser && !isForgotPassword) {
+          // Login with existing password
+          endpoint = '/loginWithPassword'; // *** CORRECTED ENDPOINT ***
+          body = { email: storedEmail, password: currentPassword };
+        } else if (isForgotPassword) {
+          // Reset password (after OTP verification for password reset)
+          endpoint = '/resetPassword';
+          body = { email: storedEmail, password: currentPassword };
+        } else {
+          // Create new account (after OTP verification for new user)
+          endpoint = '/submitPassword'; // This endpoint on backend handles new user creation
+          body = { email: storedEmail, password: currentPassword };
+        }
+
+        await apiRequest(endpoint, {
+          method: 'POST',
+          body: JSON.stringify(body)
+        });
+
+        showWelcomeScreen(storedEmail); // Show welcome on successful login/registration/reset
+      } catch (err) {
+        showMessage(`Error: ${err.message}`, 'error');
+      } finally {
+        setLoading(submitPasswordBtn, false);
+      }
+    };
+
+    const handleForgotPassword = () => {
+      isForgotPassword = true;
+      isExistingUser = false; // Reset this, as we're not logging in with existing password yet
+      
+      // Transition to a state where user confirms email to send reset OTP
+      titleElement.textContent = 'Password Reset';
+      emailInput.disabled = false; // Allow editing email if needed, or confirm current
+      // emailInput.value = storedEmail; // Keep if already entered
+      otpInput.style.display = 'none';
+      passwordInput.style.display = 'none';
+      confirmPasswordInput.style.display = 'none';
+      verifyOtpBtn.style.display = 'none';
+      resendOtpBtn.style.display = 'none';
+      submitPasswordBtn.style.display = 'none';
+      forgotPasswordBtn.style.display = 'none'; // Hide itself
+      
+      actionBtn.textContent = 'Send Password Reset OTP';
+      actionBtn.style.display = 'inline-block'; // Use the main action button
+      
+      showMessage('Enter your email to receive a password reset OTP.', 'info');
+      emailInput.focus();
+    };
+
+    const startResendCooldown = () => {
+      resendCooldown = true;
+      resendOtpBtn.disabled = true;
+      let cooldownTime = 30;
+      
+      const updateButtonText = () => {
+        resendOtpBtn.textContent = `Resend OTP (${cooldownTime}s)`;
+        cooldownTime--;
+        
+        if (cooldownTime < 0) {
+          resendOtpBtn.textContent = 'Resend OTP';
+          resendOtpBtn.disabled = false;
+          resendCooldown = false;
+        } else {
+          setTimeout(updateButtonText, 1000);
+        }
+      };
+      updateButtonText();
+    };
+
+    const logout = () => {
+      storedEmail = ''; // Clear stored email
+      // Potentially call a /logout endpoint on the backend if session management is involved
+      showLoginScreen();
+      showMessage('Logged out successfully.', 'info');
+      debugToggleBtn.style.display = 'none'; // Hide debug on logout
+      debugDiv.textContent = ''; // Clear debug log
+    };
+
+    // --- Event Listeners ---
+    actionBtn.onclick = handleSendOtpOrLogin; // Consolidated handler
+    verifyOtpBtn.onclick = verifyOtp;
+    resendOtpBtn.onclick = handleResendOtp; // Dedicated handler for resend
+    logoutBtn.onclick = logout;
+    submitPasswordBtn.onclick = submitPassword;
+    forgotPasswordBtn.onclick = handleForgotPassword;
+
+    // Enter key listeners
+    emailInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter' && actionBtn.style.display !== 'none' && !actionBtn.disabled) {
+        handleSendOtpOrLogin();
+      }
+    });
+    otpInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter' && verifyOtpBtn.style.display !== 'none' && !verifyOtpBtn.disabled) {
+        verifyOtp();
+      }
+    });
+    passwordInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter' && submitPasswordBtn.style.display !== 'none' && !submitPasswordBtn.disabled) {
+        // If confirm password is visible and empty, focus it, else submit
+        if (confirmPasswordInput.style.display !== 'none' && !confirmPasswordInput.value.trim()) {
+          confirmPasswordInput.focus();
+        } else {
+          submitPassword();
+        }
+      }
+    });
+    confirmPasswordInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter' && submitPasswordBtn.style.display !== 'none' && !submitPasswordBtn.disabled) {
+        submitPassword();
+      }
+    });
+
+    // Auto-format OTP input (numbers only)
+    otpInput.addEventListener('input', (e) => {
+  e.target.value = e.target.value.replace(/\D/g, '');
+});
+
+    // Initial setup
+    showLoginScreen();
+
+    // Test server connection on load (optional, good for debugging)
+    window.addEventListener('load', async () => {
+      try {
+        debugLog('Attempting to test server connection...');
+        const data = await apiRequest('/test'); // Assuming /test endpoint exists
+        debugLog(`Server test successful: ${JSON.stringify(data)}`);
+        // Momentarily show success, then clear
+        // showMessage('Server connected.', 'success');
+        // setTimeout(() => { if (messageDiv.textContent === 'Server connected.') showMessage(''); }, 2000);
+      } catch (err) {
+        debugLog(`Server test failed: ${err.message}`);
+        showMessage('Warning: Could not connect to the server. Please check your connection or contact support.', 'error');
+      }
+    });
+  </script>
+</body>
+</html>
