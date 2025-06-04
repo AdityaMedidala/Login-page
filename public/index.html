@@ -125,6 +125,29 @@
       border-radius: 5px;
       display: none; /* Hidden by default */
     }
+
+    #strengthMeter {
+  height: 10px; 
+  background: lightgray; 
+  margin-top: 5px;
+  border-radius: 5px; /* Add rounded corners */
+  overflow: hidden; /* Ensure bar doesn't overflow rounded corners */
+}
+
+#strengthBar {
+  height: 100%; 
+  width: 0%; 
+  background: red;
+  transition: all 0.3s ease; /* Smooth transition for width and color changes */
+  border-radius: 5px; /* Match parent border radius */
+}
+
+#strengthText {
+  margin-top: 5px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  transition: color 0.3s ease; /* Smooth color transition */
+}
   </style>
 </head>
 <body>
@@ -141,7 +164,10 @@
     <input id="confirmPassword" type="password" placeholder="Confirm your password" style="display:none" />
     <button id="submitPasswordBtn" style="display:none;">Submit Password</button>
     <button id="forgotPasswordBtn" class="forgot-password" style="display:none;">Forgot Password?</button>
-    
+    <div id="strengthMeter" style="height: 10px; background: lightgray; margin-top: 5px;">
+  <div id="strengthBar" style="height: 100%; width: 0%; background: red;"></div>
+</div>
+<p id="strengthText"></p>
     <button id="logoutBtn" style="display:none;">Logout</button>
   
     <div id="message"></div>
@@ -337,28 +363,37 @@
     };
 
     // --- Core Logic Functions ---
-    const validatePassword = () => {
-      if (!passwordInput.value.trim()) {
-        showMessage('Password cannot be empty.', 'error');
-        return false;
-      }
-      if (passwordInput.value.length < 6) {
-        showMessage('Password must be at least 6 characters long.', 'error');
-        return false;
-      }
-      // Validate confirm password only if it's visible (new user or password reset)
-      if (confirmPasswordInput.style.display !== 'none') {
-        if (!confirmPasswordInput.value.trim()) {
-          showMessage('Please confirm your password.', 'error');
-          return false;
-        }
-        if (passwordInput.value !== confirmPasswordInput.value) {
-          showMessage('Passwords do not match.', 'error');
-          return false;
-        }
-      }
-      return true;
-    };
+      
+      function validatePassword() {
+  const password = passwordInput.value.trim();
+  const confirmPassword = confirmPasswordInput.value.trim();
+
+  if (!password) {
+    showMessage('Password cannot be empty.', 'error');
+    return false;
+  }
+
+  // Enforce strong password policy
+  const strongRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*#?&^])[A-Za-z\d@$!%*#?&^]{8,}$/;
+  if (!strongRegex.test(password)) {
+    showMessage('Password must be at least 8 characters long and include uppercase, lowercase, number, and special character.', 'error');
+    return false;
+  }
+
+  // Confirm password only if visible
+  if (confirmPasswordInput.style.display !== 'none') {
+    if (!confirmPassword) {
+      showMessage('Please confirm your password.', 'error');
+      return false;
+    }
+    if (password !== confirmPassword) {
+      showMessage('Passwords do not match.', 'error');
+      return false;
+    }
+  }
+
+  return true;
+}
 
     const handleSendOtpOrLogin = async () => {
       if (!emailInput.checkValidity() || !emailInput.value.trim()) {
@@ -563,6 +598,91 @@
       debugToggleBtn.style.display = 'none'; // Hide debug on logout
       debugDiv.textContent = ''; // Clear debug log
     };
+
+    passwordInput.addEventListener('input', function () {
+  const value = passwordInput.value;
+  const strengthBar = document.getElementById('strengthBar');
+  const strengthText = document.getElementById('strengthText');
+
+  // Only show strength meter when password field is visible and has content
+  const strengthMeter = document.getElementById('strengthMeter');
+  if (passwordInput.style.display === 'none' || value.length === 0) {
+    strengthMeter.style.display = 'none';
+    strengthText.style.display = 'none';
+    return;
+  } else {
+    strengthMeter.style.display = 'block';
+    strengthText.style.display = 'block';
+  }
+
+  let strength = 0;
+  let feedback = [];
+
+  // Check various criteria
+  if (value.length >= 8) {
+    strength++;
+  } else {
+    feedback.push('at least 8 characters');
+  }
+  
+  if (/[A-Z]/.test(value)) {
+    strength++;
+  } else {
+    feedback.push('uppercase letter');
+  }
+  
+  if (/[a-z]/.test(value)) {
+    strength++;
+  } else {
+    feedback.push('lowercase letter');
+  }
+  
+  if (/\d/.test(value)) {
+    strength++;
+  } else {
+    feedback.push('number');
+  }
+  
+  if (/[@$!%*#?&^]/.test(value)) {
+    strength++;
+  } else {
+    feedback.push('special character');
+  }
+
+  // Calculate width and determine color/text
+  let width = Math.max(10, strength * 20); // Minimum 10% width for visibility
+  let color = '#e74c3c'; // Red
+  let text = 'Weak';
+  let textColor = '#FFB6C1'; // Light red
+
+  if (strength >= 3) {
+    color = '#f39c12'; // Orange
+    text = 'Medium';
+    textColor = '#FFE4B5'; // Light orange
+  }
+  if (strength >= 4) {
+    color = '#27ae60'; // Green
+    text = 'Strong';
+    textColor = '#90EE90'; // Light green
+  }
+  if (strength === 5) {
+    color = '#2ecc71'; // Brighter green
+    text = 'Very Strong';
+    textColor = '#90EE90';
+  }
+
+  // Apply changes with smooth transitions
+  strengthBar.style.width = width + '%';
+  strengthBar.style.background = color;
+  
+  // Update text with feedback
+  if (strength < 5 && feedback.length > 0) {
+    strengthText.innerHTML = `<strong>${text}</strong><br><small>Missing: ${feedback.join(', ')}</small>`;
+  } else {
+    strengthText.innerHTML = `<strong style="color: ${textColor}">${text}</strong>`;
+  }
+  strengthText.style.color = textColor;
+});
 
     // --- Event Listeners ---
     actionBtn.onclick = handleSendOtpOrLogin; // Consolidated handler
